@@ -31,7 +31,7 @@ enum Effects {
   E_CHORDGEN_B1,
   E_CHORDGEN_B2,
   E_CHORDGEN_B3,
-  //E_DELAY,
+  E_DELAY,
   //E_ARP,
   NUM_EFFECTS
 };

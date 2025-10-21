@@ -6,6 +6,7 @@
 #include "BaseEffect.h"
 #include "MidiMuteEffect.h"
 #include "ChordGenEffect.h"
+#include "DelayEffect.h"
 
 /* MIDI INIT */
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, hardwareMIDI);
@@ -74,12 +75,12 @@ void setup() {
     // Setup mode led indicator
     unsigned long now = millis();
     uint16_t i = 0;
-    while (millis() - now < 3000) { // Change colour for 3sec
+    while (millis() - now < 2000) { // Change colour for 3sec
       if (i < 256) {
         setLed(160, 255, i); // Light green
       }
       i += 10;
-      delay(200);
+      delay(150);
     }
 
     // Setup mode loop
@@ -100,7 +101,7 @@ void setup() {
       rotarySwitch.refresh();
       uint8_t pos = rotarySwitch.getPosition();
       if (pos < NUM_EFFECTS) {
-        setLed(15*pos, 15+pos, (4*pos)%15);
+        setLed(255, 15*pos, 0);
         pedalState.effectIdx = pos;
         EEPROM.write(EEPROM_EFFECT, pos);
       } else {
@@ -129,6 +130,9 @@ void setup() {
     break;
   case 3:
     currentEffect = new ChordGenEffect(3);
+    break;
+  case 4:
+    currentEffect = new DelayEffect();
     break;
   default:
     currentEffect = new MidiMuteEffect(); // Default to MidiMute if out of range
