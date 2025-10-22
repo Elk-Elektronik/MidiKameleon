@@ -24,25 +24,26 @@ typedef struct {
 class DelayEffect : public BaseEffect {
 private:
   volatile unsigned long delayTimeMs; // How long each delay is
+  uint8_t delayDivision; // How much to divide the delayTime by (1-16)
+  uint8_t numRepeats; // The number of repeats for the delay (1-16)
+  bool inDivisionMode; // If the pedal is in division mode
 
   /* Clock Input */
   volatile unsigned long lastClockMs; // The last clock pulse time
   volatile unsigned long clockIntervalMs; // The interval between clock pulses
+  volatile uint16_t bpm; // The current clock bpm
 
-  /* External footswitch tap intervals */
+  /* External footswitch tempo input */
   unsigned long lastExtTapMs; // Use this to calculate the intervals above
   unsigned long extTapIntervalsMs[2]; // the last two (2) recorded ext footswitch tap intervals
 
-  uint8_t delayDivision; // How much to divide the delayTime by (1-16)
-
-  volatile uint16_t bpm; // The current bpm
-  volatile bool clockRecieved;
-
+  /* Delay note array and array index */
   DelayNote_t delayNotes[MAX_DELAY_NOTES]; // the last 30 notes stored for delay
   uint8_t delayNotesIdx; // The current index of the next free slot
-  
-  uint8_t numRepeats; // The number of repeats for the delay (1-16)
-  bool inDivisionMode; // If the pedal is in division mode
+
+  /* Clock LED */
+  bool delayLedOn;
+  unsigned long lastLedOnTime;
 
   int8_t findDelayNote(uint8_t note, uint8_t channel);
   void resetDelayNote(uint8_t idx, uint8_t velocity, unsigned long now);
@@ -51,7 +52,6 @@ private:
   void decayVelocity(DelayNote_t &note);
   void handleMidiMessage(bool isActive, midi::MidiType type, midi::DataByte data1,
                           midi::DataByte data2, midi::Channel channel);
-  void checkExtTapTimeout();
 public:
   DelayEffect();
   void process(State_t *state) override;

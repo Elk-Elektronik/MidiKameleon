@@ -2,6 +2,19 @@
 #include "Utils.h"
 #include "DelayEffect.h"
 
+DelayEffect::DelayEffect() {
+  delayTimeMs = 0;
+  lastClockMs = 0;
+  clockIntervalMs = 0;
+  bpm = 0;
+  delayNotesIdx = 0;
+  delayDivision = 1;
+  inDivisionMode = false;
+  extTapIntervalsMs[0] = 500;
+  extTapIntervalsMs[1] = 500;
+  delayLedOn = false;
+}
+
 int8_t DelayEffect::findDelayNote(uint8_t note, uint8_t channel) {
   for (int i = 0; i < MAX_DELAY_NOTES; i++) {
     if (delayNotes[i].isActive && delayNotes[i].note == note &&
@@ -114,20 +127,9 @@ void DelayEffect::handleMidiMessage(
   }
 }
 
-DelayEffect::DelayEffect() {
-  delayTimeMs = 0;
-  lastClockMs = 0;
-  clockIntervalMs = 0;
-  bpm = 0;
-  delayNotesIdx = 0;
-  delayDivision = 1;
-  inDivisionMode = false;
-  clockRecieved = false; // Default to clock not recieved and only change that in the clock handler
-  extTapIntervalsMs[0] = 500;
-  extTapIntervalsMs[1] = 500;
-}
-
 void DelayEffect::process(State_t *state) {
+  unsigned long now = millis();
+
   // Initialise the numRepeats on the first call
   static bool initialised = false;
   if (!initialised) {
@@ -135,11 +137,11 @@ void DelayEffect::process(State_t *state) {
     initialised = true;
   }
 
-  if (inDivisionMode) {
+  if (inDivisionMode && !delayLedOn) {
     setLed(200, 150, 100);
-  } else if (state->isActive) {
+  } else if (state->isActive && !delayLedOn) {
     setLed(0, 255, 0); // Green
-  } else {
+  } else if (!delayLedOn) {
     setLed(0, 0, 0); // Off
   }
 
@@ -151,21 +153,30 @@ void DelayEffect::process(State_t *state) {
     }
   }
 
+  if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)) {
+    setLed(0, 255, 255);
+    delayLedOn = true;
+    lastLedOnTime = now;
+  } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)/2) {
+    setLed(0, 0, 0);
+    delayLedOn = false;
+  }
+
   // The ext footswitch hasn't been pressed recently, so use the current time as the last ext tap
-  if (millis() - lastExtTapMs > EXT_TIMEOUT) {
-    lastExtTapMs = millis();
+  if (now - lastExtTapMs > EXT_TIMEOUT) {
+    lastExtTapMs = now;
   }
 
   // Clock hasn't been recieved recently, so use the ext footswitch as clock source
-  if (millis() - lastClockMs > CLOCK_TIMEOUT) {
+  if (now - lastClockMs > CLOCK_TIMEOUT) {
     delayTimeMs = (extTapIntervalsMs[0] + extTapIntervalsMs[1]) / 2; // Average out taps 
   }
 
   switch (state->extEvent) {
   case Click: // Shuffle the last tap over, and add the current tap interval
     extTapIntervalsMs[1] = extTapIntervalsMs[0];
-    extTapIntervalsMs[0] = millis() - lastExtTapMs;
-    lastExtTapMs = millis();
+    extTapIntervalsMs[0] = now - lastExtTapMs;
+    lastExtTapMs = now;
     break;
   default: 
     break;
@@ -188,7 +199,6 @@ void DelayEffect::process(State_t *state) {
     break;
   }
 
-  unsigned long now = millis();
   for (uint8_t i = 0; i < MAX_DELAY_NOTES; i++) {
     DelayNote_t dn = delayNotes[i];
 
@@ -254,5 +264,4 @@ void DelayEffect::handleClock() {
     delayTimeMs = 60000 / bpm;
   }
   lastClockMs = now;
-  clockRecieved = true;
 }
