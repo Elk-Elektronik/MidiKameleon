@@ -32,19 +32,6 @@ void handleClock() {
   if (currentEffect) currentEffect->handleClock();
 }
 
-/*
-unsigned long currentTaps[2] = {0};
-unsigned long lastTap = 0;
-unsigned long lastBlink = 0;
-bool ledOn = false;
-
-void tap() {
-  currentTaps[1] = currentTaps[0];
-  currentTaps[0] = millis() - lastTap;
-  lastTap = millis();
-}
-*/
-
 void setup() {
   /* SWITCHES */
   stompSwitch.setup();
@@ -152,34 +139,4 @@ void loop() {
   if (currentEffect) {
     currentEffect->process(&pedalState);
   }
-
-/*
-  SwEvent_t event = extSwitch.getEvent();
-  switch (event) {
-    case Click: 
-      tap();
-      break;
-    default:
-      break;
-  }
-
-  unsigned long average = ((currentTaps[0] + currentTaps[1]) / 2);
-  unsigned long t = millis();
-  if (t - lastBlink > average) {
-    setLed(200, 200, 200);
-    lastBlink = t;
-    ledOn = true;
-  }
-
-  if (ledOn && t - lastBlink > average/2) {
-    setLed(0, 0, 0);
-    ledOn = false;
-  }
-
-  Serial.print(currentTaps[0]);
-  Serial.print(" : ");
-  Serial.print(currentTaps[1]);
-  Serial.print(" : ");
-  Serial.println((currentTaps[0] + currentTaps[1]) / 2);
-*/
 }

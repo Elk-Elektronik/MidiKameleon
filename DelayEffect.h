@@ -5,6 +5,8 @@
 #include "BaseEffect.h"
 
 #define MAX_DELAY_NOTES 30
+#define CLOCK_TIMEOUT 1000
+#define EXT_TIMEOUT 5000
 
 typedef struct {
   bool isActive;            // If the note still has some velocity, it's active
@@ -22,10 +24,19 @@ typedef struct {
 class DelayEffect : public BaseEffect {
 private:
   volatile unsigned long delayTimeMs; // How long each delay is
-  uint8_t delayDivision; // How much to divide the delayTime by (1-16)
+
+  /* Clock Input */
   volatile unsigned long lastClockMs; // The last clock pulse time
   volatile unsigned long clockIntervalMs; // The interval between clock pulses
+
+  /* External footswitch tap intervals */
+  unsigned long lastExtTapMs; // Use this to calculate the intervals above
+  unsigned long extTapIntervalsMs[2]; // the last two (2) recorded ext footswitch tap intervals
+
+  uint8_t delayDivision; // How much to divide the delayTime by (1-16)
+
   volatile uint16_t bpm; // The current bpm
+  volatile bool clockRecieved;
 
   DelayNote_t delayNotes[MAX_DELAY_NOTES]; // the last 30 notes stored for delay
   uint8_t delayNotesIdx; // The current index of the next free slot
@@ -40,6 +51,7 @@ private:
   void decayVelocity(DelayNote_t &note);
   void handleMidiMessage(bool isActive, midi::MidiType type, midi::DataByte data1,
                           midi::DataByte data2, midi::Channel channel);
+  void checkExtTapTimeout();
 public:
   DelayEffect();
   void process(State_t *state) override;

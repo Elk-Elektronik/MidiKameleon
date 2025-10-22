@@ -120,12 +120,21 @@ DelayEffect::DelayEffect() {
   clockIntervalMs = 0;
   bpm = 0;
   delayNotesIdx = 0;
-  numRepeats = 1; // Default to 1. TODO: Should really handle the init of this in process
   delayDivision = 1;
   inDivisionMode = false;
+  clockRecieved = false; // Default to clock not recieved and only change that in the clock handler
+  extTapIntervalsMs[0] = 500;
+  extTapIntervalsMs[1] = 500;
 }
 
 void DelayEffect::process(State_t *state) {
+  // Initialise the numRepeats on the first call
+  static bool initialised = false;
+  if (!initialised) {
+    numRepeats = state->rotaryPos;
+    initialised = true;
+  }
+
   if (inDivisionMode) {
     setLed(200, 150, 100);
   } else if (state->isActive) {
@@ -140,6 +149,26 @@ void DelayEffect::process(State_t *state) {
     } else {
       numRepeats = state->rotaryPos;
     }
+  }
+
+  // The ext footswitch hasn't been pressed recently, so use the current time as the last ext tap
+  if (millis() - lastExtTapMs > EXT_TIMEOUT) {
+    lastExtTapMs = millis();
+  }
+
+  // Clock hasn't been recieved recently, so use the ext footswitch as clock source
+  if (millis() - lastClockMs > CLOCK_TIMEOUT) {
+    delayTimeMs = (extTapIntervalsMs[0] + extTapIntervalsMs[1]) / 2; // Average out taps 
+  }
+
+  switch (state->extEvent) {
+  case Click: // Shuffle the last tap over, and add the current tap interval
+    extTapIntervalsMs[1] = extTapIntervalsMs[0];
+    extTapIntervalsMs[0] = millis() - lastExtTapMs;
+    lastExtTapMs = millis();
+    break;
+  default: 
+    break;
   }
 
   switch (state->stompEvent) {
@@ -225,4 +254,5 @@ void DelayEffect::handleClock() {
     delayTimeMs = 60000 / bpm;
   }
   lastClockMs = now;
+  clockRecieved = true;
 }
