@@ -7,6 +7,7 @@
 #include "MidiMuteEffect.h"
 #include "ChordGenEffect.h"
 #include "DelayEffect.h"
+#include "ArpEffect.h"
 
 /* MIDI INIT */
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, hardwareMIDI);
@@ -120,6 +121,9 @@ void setup() {
     break;
   case 4:
     currentEffect = new DelayEffect();
+    break;
+  case 5:
+    currentEffect = new ArpEffect();
     break;
   default:
     currentEffect = new MidiMuteEffect(); // Default to MidiMute if out of range

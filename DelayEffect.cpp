@@ -137,12 +137,21 @@ void DelayEffect::process(State_t *state) {
     initialised = true;
   }
 
-  if (inDivisionMode && !delayLedOn) {
-    setLed(200, 150, 100);
-  } else if (state->isActive && !delayLedOn) {
-    setLed(0, 255, 0); // Green
-  } else if (!delayLedOn) {
-    setLed(0, 0, 0); // Off
+  if (state->isActive) {
+    if (inDivisionMode) {
+      setLed(255, 100, 100);
+    } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)/2) {
+      setLed(0, 0, 0);
+      delayLedOn = false;
+    } else if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)) {
+      setLed(0, 255, 50); // Weird green
+      delayLedOn = true;
+      lastLedOnTime = now;
+    } else if (!delayLedOn) {
+      setLed(0, 255, 0);
+    }
+  } else {
+    setLed(0, 0, 0);
   }
 
   if (state->rotaryMoved) {
@@ -151,15 +160,6 @@ void DelayEffect::process(State_t *state) {
     } else {
       numRepeats = state->rotaryPos;
     }
-  }
-
-  if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)) {
-    setLed(0, 255, 255);
-    delayLedOn = true;
-    lastLedOnTime = now;
-  } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)/2) {
-    setLed(0, 0, 0);
-    delayLedOn = false;
   }
 
   // The ext footswitch hasn't been pressed recently, so use the current time as the last ext tap

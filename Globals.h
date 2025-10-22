@@ -25,6 +25,10 @@
 #define LED_G_PIN 9
 #define LED_B_PIN 6
 
+/* TIMEOUTS */
+#define CLOCK_TIMEOUT 1000
+#define EXT_TIMEOUT 5000
+
 /* EFFECTS */
 enum Effects {
   E_MIDIMUTE,
@@ -32,7 +36,7 @@ enum Effects {
   E_CHORDGEN_B2,
   E_CHORDGEN_B3,
   E_DELAY,
-  //E_ARP,
+  E_ARP,
   NUM_EFFECTS
 };
 
