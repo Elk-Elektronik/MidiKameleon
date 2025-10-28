@@ -253,6 +253,15 @@ void DelayEffect::process(State_t *state) {
   }
 }
 
+void DelayEffect::handlePanic() {
+  for (uint8_t i = 0; i < delayNotesIdx; i++) {
+    delayNotes[i].isActive = false;
+  }
+  for (uint8_t i = 0; i < 16; i++) { // 16 midi channels total
+    sendMidiBoth(midi::MidiType::ControlChange, midi::AllNotesOff, 0, i+1);
+  }
+}
+
 void DelayEffect::handleClock() {
   hardwareMIDI.sendClock();
   usbMIDI.sendClock();

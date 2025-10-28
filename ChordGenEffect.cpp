@@ -134,6 +134,12 @@ ChordGenEffect::ChordGenEffect(uint8_t bankNum) {
   hasOldNotes = false;
 }
 
+void ChordGenEffect::handlePanic() {
+  for (uint8_t i = 0; i < 16; i++) { // 16 midi channels total
+    sendMidiBoth(midi::MidiType::ControlChange, midi::AllNotesOff, 0, i+1);
+  }
+}
+
 void ChordGenEffect::handleClock() {
   hardwareMIDI.sendClock();
   usbMIDI.sendClock();

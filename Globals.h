@@ -45,6 +45,7 @@ typedef enum {
   NoEvent,
   Click,
   LongPress,
+  ResetPress,
 } SwEvent_t;
 
 /* PEDAL STATE STRUCT */
@@ -59,13 +60,14 @@ typedef struct {
 } State_t;
 
 /* EEPROM SAVE LOCATIONS */
-#define EEPROM_EFFECT 0x00 // The currently active effect (8-bit space)
-#define EEPROM_STOMPSTATE 0xF // Saved bypass status (8-bit space)
+// NOTE: The save locations are 1 byte (8 bits) long
+#define EEPROM_EFFECT 0x00 // The currently active effect
 #define EEPROM_MUTE_BASE 0x10 // Midi mute location (takes 16 * 8bits space)
-#define EEPROM_DELAY_BASE 0x50 // Delay location (not used yet)
+#define EEPROM_ARP_BASE 0x50 // Step save location
 
 /* TIMERS */
 #define LONG_PRESS 1000
+#define RESET_PRESS 3000
 #define LED_TIME_MS 1000
 
 /* MIDI */

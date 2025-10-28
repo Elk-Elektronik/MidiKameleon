@@ -7,7 +7,7 @@
 
 typedef enum { ARPMODE_DEFAULT, ARPMODE_PROGRAM, NUM_ARPMODE } ArpMode_t; // The current mode the arp effect is in
 
-typedef enum { PLAY_AP, PLAY_UP, PLAY_DN, PLAY_UPDN, PLAY_AP_OCT, PLAY_UP_OCT, PLAY_DN_OCT, PLAY_UPDN_OCT, NUM_PLAYMODE } ArpPlayMode_t; // The current play mode
+typedef enum { PLAY_AP, PLAY_UP, PLAY_DN, PLAY_UPDN, PLAY_AP_OCT, PLAY_UP_OCT, PLAY_DN_OCT/*, PLAY_UPDN_OCT*/, NUM_PLAYMODE } ArpPlayMode_t; // The current play mode
 
 #define NOTE_BUFFER_SIZE 20
 
@@ -26,7 +26,7 @@ private:
   ArpNote_t noteList[NOTE_BUFFER_SIZE] = {}; // The list of notes being held down
   bool stepList[16];  // The 16 steps available for muting
   uint8_t size;    // The size of the noteList
-  //uint8_t octaves; // The number of octaves to span
+  uint8_t octaves; // The number of octaves to span
 
   uint8_t noteIdx; // The index of the next note to play
   uint8_t stepIdx; // The index of the next step
@@ -44,12 +44,15 @@ public:
   void del(midi::DataByte note);     // Delete a specific note from the list
 
   uint8_t getSize(); // Get list size
+  uint8_t getOctaves(); // Get the number of octaves to span
+  int8_t getDirFlag(); // Get the current direction flag
   ArpNote_t *getNote(); // Retrieve the note to play
   ArpNote_t *getPrevNote(); // Retrieve the previous note played
 
   void toggleStep(uint8_t index);
   bool getStep(uint8_t index);
   void setPlayMode(ArpPlayMode_t mode);
+  void clear(); // Clear the list and send note off for all the remaining notes
 };
 /* END ARPLIST CLASS */
 
@@ -75,6 +78,11 @@ private:
   bool clockLedOn; // 
   unsigned long lastLedOnTime;
 
+  /* State copies */
+  bool isStompActive; // Use this as a 'global' reference to isActive for the advanceArpStep function
+
+  bool isInitialised;
+ 
   void advanceArpStep();
   void handleMidiMessage(bool isActive, midi::MidiType type, midi::DataByte data1,
                           midi::DataByte data2, midi::Channel channel);
@@ -82,6 +90,7 @@ private:
 public:
   ArpEffect();
   void process(State_t *state) override;
+  void handlePanic() override;
   void handleClock() override;
 };
 

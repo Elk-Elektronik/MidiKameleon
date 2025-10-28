@@ -6,9 +6,6 @@
 #include "BaseEffect.h"
 #include <stdint.h>
 
-/* MIDI CC NUM FOR ALL NOTES OFF */
-#define ALL_NOTES_OFF_CC 0x7B
-
 enum MIDI_Channel {
   MIDI_CHANNEL_1,
   MIDI_CHANNEL_2,
@@ -75,6 +72,7 @@ private:
 public:
   MidiMuteEffect();
   void process(State_t *state) override;
+  void handlePanic() override;
   void handleClock() override;
 };
 

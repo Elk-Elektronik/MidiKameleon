@@ -23,7 +23,7 @@ private:
   unsigned long pressStartMs;
   unsigned long lastDebounceTime;
   const unsigned long debounceDelay = 50;
-  bool isLongPress;
+  bool isResetPress;
 
 public:
   EventSwitch(uint8_t _pin, uint8_t _mode);

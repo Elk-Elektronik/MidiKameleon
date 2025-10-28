@@ -123,6 +123,7 @@ private:
 public:
   ChordGenEffect(uint8_t bankNum);
   void process(State_t *state) override;
+  void handlePanic() override;
   void handleClock() override;
 };
 

@@ -53,6 +53,7 @@ private:
 public:
   DelayEffect();
   void process(State_t *state) override;
+  void handlePanic() override;
   void handleClock() override;
 };
 

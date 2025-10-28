@@ -33,6 +33,52 @@ void handleClock() {
   if (currentEffect) currentEffect->handleClock();
 }
 
+void indicateModeChange(uint16_t flashTimeMs) {
+  setLed(255, 0, 0);
+  delay(flashTimeMs);
+  setLed(0, 0, 0);
+  delay(flashTimeMs);
+  setLed(255, 0, 0);
+  delay(flashTimeMs);
+  setLed(0, 0, 0);
+  delay(flashTimeMs);
+  setLed(255, 0, 0);
+  delay(flashTimeMs);
+  setLed(0, 0, 0);
+}
+
+void indicateBoot() {
+  uint8_t r = 255, g = 0, b = 0;
+  uint8_t phase = 0;
+  unsigned long currTime = millis();
+  while (millis() - currTime < 3000) { // 3 seconds
+    switch (phase) {
+    case 0: // red -> yellow (increase green)
+      if (g < 255) g++; else phase = 1;
+      break;
+    case 1: // yellow -> green (decrease red)
+      if (r > 0) r--; else phase = 2;
+      break;
+    case 2: // green -> cyan (increase blue)
+      if (b < 255) b++; else phase = 3;
+      break;
+    case 3: // cyan -> blue (decrease green)
+      if (g > 0) g--; else phase = 4;
+      break;
+    case 4: // blue -> magenta (increase red)
+      if (r < 255) r++; else phase = 5;
+      break;
+    case 5: // magenta -> red (decrease blue)
+      if (b > 0) b--; else phase = 0;
+      break;
+    }
+
+    setLed(r, g, b);
+    delay(2); // This just looks correct when looking at led
+  }
+  setLed(0, 0, 0);
+}
+
 void setup() {
   /* SWITCHES */
   stompSwitch.setup();
@@ -61,15 +107,7 @@ void setup() {
   if (!stompSwitch.getValue()) {
     
     // Setup mode led indicator
-    unsigned long now = millis();
-    uint16_t i = 0;
-    while (millis() - now < 2000) { // Change colour for 3sec
-      if (i < 256) {
-        setLed(160, 255, i); // Light green
-      }
-      i += 10;
-      delay(150);
-    }
+    indicateModeChange(500);
 
     // Setup mode loop
     bool inSetup = true;
@@ -102,7 +140,8 @@ void setup() {
     else pedalState.effectIdx = E_MIDIMUTE;
   }
 
-  pedalState.isActive = false; // TODO: Change this to read from EEPROM
+  // On boot, the pedal isn't active
+  pedalState.isActive = false;
 
   // This probably isn't the best way to do this, but it
   // means that only one effect is instantiated at any one time
@@ -132,6 +171,9 @@ void setup() {
 
   // Set the clock event handler since this is unique to each effect
   hardwareMIDI.setHandleClock(handleClock);
+
+  // Indicate boot led sequence
+  indicateBoot();
 }
 
 void loop() {
@@ -140,6 +182,16 @@ void loop() {
   pedalState.rotaryMoved = rotarySwitch.refresh();
   pedalState.rotaryPos = rotarySwitch.getPosition();
 
+  // Midi panic
+  if (pedalState.stompEvent == ResetPress || pedalState.extEvent == ResetPress) {
+    indicateModeChange(100);
+
+    if (currentEffect) {
+      currentEffect->handlePanic();
+    }
+  }
+
+  // Process midi
   if (currentEffect) {
     currentEffect->process(&pedalState);
   }
