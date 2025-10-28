@@ -5,8 +5,6 @@
 #include "BaseEffect.h"
 
 #define MAX_DELAY_NOTES 30
-#define CLOCK_TIMEOUT 1000
-#define EXT_TIMEOUT 5000
 
 typedef struct {
   bool isActive;            // If the note still has some velocity, it's active
@@ -34,8 +32,8 @@ private:
   volatile uint16_t bpm; // The current clock bpm
 
   /* External footswitch tempo input */
-  unsigned long lastExtTapMs; // Use this to calculate the intervals above
   unsigned long extTapIntervalsMs[2]; // the last two (2) recorded ext footswitch tap intervals
+  unsigned long lastExtTapMs; // Use this to calculate the intervals above
 
   /* Delay note array and array index */
   DelayNote_t delayNotes[MAX_DELAY_NOTES]; // the last 30 notes stored for delay
@@ -55,6 +53,7 @@ private:
 public:
   DelayEffect();
   void process(State_t *state) override;
+  void handlePanic() override;
   void handleClock() override;
 };
 

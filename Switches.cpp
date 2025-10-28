@@ -26,21 +26,27 @@ SwEvent_t EventSwitch::getEvent() {
   bool currentValue = sw.getValue();
   unsigned long now = millis();
 
-  if (lastValue != currentValue && (now - lastDebounceTime > debounceDelay)) {
+  if (lastValue != currentValue && (now - lastDebounceTime > debounceDelay)) { // There's a change
     lastDebounceTime = now;
+    lastValue = currentValue;
 
-    if (!currentValue) { // Switch is pressed
+    // Switch is pressed
+    if (!currentValue) {
       pressStartMs = now;
-      isLongPress = false;
-    } else if (!isLongPress) { // Switch is released and it's not a long press
+      isResetPress = false;
+
+     // Switch is released and was held down for long press but wasn't a reset press
+    } else if (!isResetPress && (now - pressStartMs) > LONG_PRESS) {
+      event = LongPress;
+      
+    // Switch is released but wasn't a reset press
+    } else  if (!isResetPress) {
       event = Click;
     }
-    lastValue = currentValue;
-  }
-
-  if (!currentValue && (millis() - pressStartMs) > LONG_PRESS && !isLongPress) {
-    isLongPress = true;
-    event = LongPress;
+  // There's no change and no event occured yet and switch is held for reset press time
+  } else if (!currentValue && (now - pressStartMs) > RESET_PRESS && !isResetPress) {
+    event = ResetPress;
+    isResetPress = true;
   }
 
   return event;

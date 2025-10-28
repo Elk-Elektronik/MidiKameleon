@@ -1,3 +1,4 @@
+#include "midi_Defs.h"
 #include "Arduino.h"
 #include "EEPROM.h"
 #include "Utils.h"
@@ -53,7 +54,7 @@ MidiMuteEffect::MidiMuteEffect() {
 void MidiMuteEffect::sendAllNotesOff(ChannelMute &channel) {
   if (!channel.getStopSent()) {
     // Send all notes off
-    sendMidiBoth(midi::MidiType::ControlChange, ALL_NOTES_OFF_CC, 0,
+    sendMidiBoth(midi::MidiType::ControlChange, midi::AllNotesOff, 0,
                  channel.getChannel());
 
     // Handles hardware that does not have all notes off CC by sending note off
@@ -130,6 +131,12 @@ void MidiMuteEffect::handleSwitchEvent(State_t *state, SwEvent_t event) {
     break;
   } default:
     break;
+  }
+}
+
+void MidiMuteEffect::handlePanic() {
+  for (uint8_t i = 0; i < 16; i++) { // 16 midi channels total
+    sendMidiBoth(midi::MidiType::ControlChange, midi::AllNotesOff, 0, i+1);
   }
 }
 

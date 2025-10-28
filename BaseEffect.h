@@ -6,6 +6,7 @@
 class BaseEffect {
 public:
     virtual void process(State_t *state) = 0;
+    virtual void handlePanic() = 0;
     virtual void handleClock() = 0;
     virtual ~BaseEffect() {}
 };
