@@ -30,6 +30,7 @@ private:
   volatile unsigned long lastClockMs; // The last clock pulse time
   volatile unsigned long clockIntervalMs; // The interval between clock pulses
   volatile uint16_t bpm; // The current clock bpm
+  bool clockFlag;
 
   /* External footswitch tempo input */
   unsigned long extTapIntervalsMs[2]; // the last two (2) recorded ext footswitch tap intervals

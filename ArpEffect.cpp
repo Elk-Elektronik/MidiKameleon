@@ -74,6 +74,12 @@ void ArpList::del(midi::DataByte note) {
         noteList[j] = noteList[j + 1];
       }
       size--;
+      if (prevNoteIdx > i) {
+        prevNoteIdx--;
+      }
+      if (noteIdx > i) {
+        noteIdx--;
+      }
 
       // Reset to defaults if no notes are being held
       if (size == 0) {
@@ -128,14 +134,16 @@ ArpNote_t *ArpList::getNote() {
   // Up and as-played + octave variants
   if (playMode == PLAY_AP || 
       playMode == PLAY_AP_OCT || 
+      playMode == PLAY_AP_OCT2 ||
       playMode == PLAY_UP || 
-      playMode == PLAY_UP_OCT
+      playMode == PLAY_UP_OCT ||
+      playMode == PLAY_UP_OCT2
   ) {
     noteIdx = (noteIdx + directionFlag) % size;
   }
 
   // Down + octave variants
-  else if (playMode == PLAY_DN || playMode == PLAY_DN_OCT) {
+  else if (playMode == PLAY_DN || playMode == PLAY_DN_OCT || playMode == PLAY_DN_OCT2) {
     if (noteIdx == 0) {
       noteIdx = size - 1;
     }
@@ -200,12 +208,17 @@ void ArpList::setPlayMode(ArpPlayMode_t _playMode) {
       directionFlag = -1;
       octaves = 2;
       break;
-      /*
-    case PLAY_UPDN_OCT:
+    case PLAY_AP_OCT2:
       directionFlag = 1;
-      octaves = 2;
+      octaves = 3;
+    case PLAY_UP_OCT2:
+      directionFlag = 1;
+      octaves = 3;
       break;
-      */
+    case PLAY_DN_OCT2:
+      directionFlag = -1;
+      octaves = 3;
+      break;
     default:
       break;
   }

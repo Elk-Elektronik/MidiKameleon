@@ -13,6 +13,7 @@ DelayEffect::DelayEffect() {
   extTapIntervalsMs[0] = 500;
   extTapIntervalsMs[1] = 500;
   delayLedOn = false;
+  clockFlag = false;
 }
 
 int8_t DelayEffect::findDelayNote(uint8_t note, uint8_t channel) {
@@ -33,23 +34,32 @@ void DelayEffect::resetDelayNote(uint8_t idx, uint8_t velocity, unsigned long no
   delayNotes[idx].noteOnMs = now;
 }
 
-void DelayEffect::addDelayNote(uint8_t note, uint8_t velocity, uint8_t channel,
-                                unsigned long now) {
-  DelayNote_t dn = {};
-  dn.note = note;
-  dn.velocity = velocity;
-  dn.initVelocity = velocity;
-  dn.channel = channel;
-  dn.lastPlayMs = now;
-  dn.noteOnMs = now;
-  dn.isActive = true;
-  dn.noteOffIntervalMs = 0;
-  delayNotes[delayNotesIdx] = dn;
-  delayNotesIdx = (delayNotesIdx + 1) % MAX_DELAY_NOTES;
-}
+  void DelayEffect::addDelayNote(uint8_t note, uint8_t velocity, uint8_t channel,
+                                  unsigned long now) {
+    DelayNote_t dn = {};
+    dn.isActive = true;
+    dn.isOn = true;
+
+    dn.note = note;
+    dn.initVelocity = velocity;
+    dn.velocity = velocity;
+    dn.channel = channel;
+    dn.lastPlayMs = now;
+
+    dn.noteOnMs = now;
+    dn.noteOffIntervalMs = 0;
+
+    delayNotes[delayNotesIdx] = dn;
+    delayNotesIdx = (delayNotesIdx + 1) % MAX_DELAY_NOTES;
+  }
 
 void DelayEffect::decayVelocity(DelayNote_t &note) {
-  uint8_t step = note.initVelocity / numRepeats;
+  uint8_t step;
+  if (numRepeats == 0) { // Avoids division by 0
+    step = note.velocity;
+  } else {
+    step = note.initVelocity / numRepeats;
+  }
 
   // Only reduce velocity if note has been released
   if (note.noteOffIntervalMs != 0) {
@@ -79,51 +89,50 @@ void DelayEffect::handleMidiMessage(
     sendMidiStop();
     break;
   case midi::MidiType::NoteOn: {
+    int8_t idx = findDelayNote(data1, channel);
+
+    // Pedal is active
     if (isActive) {
       unsigned long now = millis();
-      bool isOn = false;
-      int8_t idx = findDelayNote(data1, channel);
 
       // Reset the note (if found) or add it
       if (idx != -1) {
         resetDelayNote(idx, data2, now);
-        isOn = delayNotes[idx].isOn;
+
+        // Turn off if already on
+        if (delayNotes[idx].isOn) {
+          sendMidiBoth(midi::MidiType::NoteOff, data1, data2, channel);
+        }
       } else {
         addDelayNote(data1, data2, channel, now);
       }
 
-      // Turn off note if its currently on
-      if (isOn) {
-        sendMidiBoth(midi::MidiType::NoteOff, data1, data2, channel);
-      }
     }
+    delayNotes[idx].isOn = true;
     sendMidiBoth(type, data1, data2, channel);
     break;
   }
   case midi::MidiType::NoteOff: {
-    bool isOn = false;
-    if (isActive) {
-      
-      // Check if the note is present
-      int8_t idx = findDelayNote(data1, channel);
+    int8_t idx = findDelayNote(data1, channel);
 
-      // if present and active, record when it was turned off (for delay length)
-      if (idx != -1 && delayNotes[idx].isActive &&
-          delayNotes[idx].noteOffIntervalMs == 0
-      ) {
-        delayNotes[idx].noteOffIntervalMs = millis() - delayNotes[idx].noteOnMs;
-        isOn = delayNotes[idx].isOn;
-      }
-    
-    // Otherwise if the note isn't an active delay note, or the pedal isn't active,
-    // Just pass through the message
-    } if (!isOn) {
+    // Pedal active, note found, and note is active
+    if (
+      isActive &&
+      idx != -1 && 
+      delayNotes[idx].isActive
+    ) {
+      delayNotes[idx].noteOffIntervalMs = millis() - delayNotes[idx].noteOnMs;
+    }
+    // Turn off note and indicate the same in the note struct
+    if (!delayNotes[idx].isOn) {
+      delayNotes[idx].isOn = false;
       sendMidiBoth(type, data1, data2, channel);
     }
     break;
   }
   default: // Send any other message normally
     sendMidiBoth(type, data1, data2, channel);
+    break;
   }
 }
 
@@ -137,13 +146,24 @@ void DelayEffect::process(State_t *state) {
     initialised = true;
   }
 
+  if (clockFlag) {
+    hardwareMIDI.sendClock();
+    usbMIDI.sendClock();
+
+    unsigned long now = millis();
+    clockIntervalMs = now - lastClockMs;
+    delayTimeMs = clockIntervalMs * MIDI_CLOCKS_PER_QUARTER;
+    lastClockMs = now;
+    clockFlag = false;
+  }
+
   if (state->isActive) {
     if (inDivisionMode) {
       setLed(255, 100, 100);
-    } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)/2) {
+    } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/(float)delayDivision)/2) {
       setLed(0, 0, 0);
       delayLedOn = false;
-    } else if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/delayDivision)) {
+    } else if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/(float)delayDivision)) {
       setLed(0, 255, 50); // Weird green
       delayLedOn = true;
       lastLedOnTime = now;
@@ -202,41 +222,46 @@ void DelayEffect::process(State_t *state) {
   for (uint8_t i = 0; i < MAX_DELAY_NOTES; i++) {
     DelayNote_t dn = delayNotes[i];
 
-    if (dn.isActive) {
+    if (delayNotes[i].isActive) {
       
       // Note should be turned off
-      if (dn.isOn && dn.noteOffIntervalMs > 0 && 
-          (now - dn.lastPlayMs) > dn.noteOffIntervalMs
+      if (
+        delayNotes[i].isOn && 
+        delayNotes[i].noteOffIntervalMs > 0 && 
+        (now - delayNotes[i].lastPlayMs) > delayNotes[i].noteOffIntervalMs
       ) {
-        sendMidiBoth(midi::MidiType::NoteOff, dn.note, dn.velocity, dn.channel);
         delayNotes[i].isOn = false; // Modify the original delay note
+        sendMidiBoth(midi::MidiType::NoteOff, delayNotes[i].note, 
+                      delayNotes[i].velocity, delayNotes[i].channel);
       }
 
       // Next delay should be handled
-      if ((now - dn.lastPlayMs) > delayTimeMs/delayDivision) {
+      if ((now - delayNotes[i].lastPlayMs) > delayTimeMs/(float)delayDivision) {
 
         // Note should delay again with less velocity
-        if (dn.velocity > 0) {
+        if (delayNotes[i].velocity > 0) {
 
           // Send note off (if needed) before sending note on again 
-          if (dn.isOn) {
-            sendMidiBoth(midi::MidiType::NoteOff, dn.note, dn.velocity, dn.channel);
+          if (delayNotes[i].isOn) {
+            sendMidiBoth(midi::MidiType::NoteOff, delayNotes[i].note, 
+                          delayNotes[i].velocity, delayNotes[i].channel);
           }
-          sendMidiBoth(midi::MidiType::NoteOn, dn.note, dn.velocity, dn.channel);
+          delayNotes[i].isOn = true;
+          sendMidiBoth(midi::MidiType::NoteOn, delayNotes[i].note, 
+                        delayNotes[i].velocity, delayNotes[i].channel);
 
           // Decay the velocity
           decayVelocity(delayNotes[i]);
 
           // Set note's state variables
           delayNotes[i].lastPlayMs = now;
-          delayNotes[i].isOn = true;
 
         // Note should be turned off since velocity is < 0
         } else {
           delayNotes[i].isActive = false;
-          if (dn.isOn) {
-            sendMidiBoth(midi::MidiType::NoteOff, dn.note, dn.velocity, dn.channel);
-          }
+          delayNotes[i].isOn = false;
+          sendMidiBoth(midi::MidiType::NoteOff, delayNotes[i].note, 
+                        delayNotes[i].velocity, delayNotes[i].channel);
         }
       }
     }
@@ -256,21 +281,14 @@ void DelayEffect::process(State_t *state) {
 void DelayEffect::handlePanic() {
   for (uint8_t i = 0; i < delayNotesIdx; i++) {
     delayNotes[i].isActive = false;
+    delayNotes[i].isOn = false;
   }
   for (uint8_t i = 0; i < 16; i++) { // 16 midi channels total
     sendMidiBoth(midi::MidiType::ControlChange, midi::AllNotesOff, 0, i+1);
+    
   }
 }
 
 void DelayEffect::handleClock() {
-  hardwareMIDI.sendClock();
-  usbMIDI.sendClock();
-
-  unsigned long now = millis();
-  if (lastClockMs != 0) {
-    clockIntervalMs = now - lastClockMs; // ms per clock
-    bpm = 60000 / (clockIntervalMs * MIDI_CLOCKS_PER_QUARTER);
-    delayTimeMs = 60000 / bpm;
-  }
-  lastClockMs = now;
+  clockFlag = true;
 }
