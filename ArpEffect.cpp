@@ -134,6 +134,7 @@ ArpNote_t *ArpList::getNote() {
   // Up and as-played + octave variants
   if (playMode == PLAY_AP || 
       playMode == PLAY_AP_OCT || 
+      playMode == PLAY_AP_OCT2 ||
       playMode == PLAY_UP || 
       playMode == PLAY_UP_OCT ||
       playMode == PLAY_UP_OCT2
@@ -207,6 +208,9 @@ void ArpList::setPlayMode(ArpPlayMode_t _playMode) {
       directionFlag = -1;
       octaves = 2;
       break;
+    case PLAY_AP_OCT2:
+      directionFlag = 1;
+      octaves = 3;
     case PLAY_UP_OCT2:
       directionFlag = 1;
       octaves = 3;
@@ -215,12 +219,6 @@ void ArpList::setPlayMode(ArpPlayMode_t _playMode) {
       directionFlag = -1;
       octaves = 3;
       break;
-      /*
-    case PLAY_UPDN_OCT:
-      directionFlag = 1;
-      octaves = 2;
-      break;
-      */
     default:
       break;
   }

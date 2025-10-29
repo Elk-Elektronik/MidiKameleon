@@ -7,7 +7,11 @@
 
 typedef enum { ARPMODE_DEFAULT, ARPMODE_PROGRAM, NUM_ARPMODE } ArpMode_t; // The current mode the arp effect is in
 
-typedef enum { PLAY_AP, PLAY_UP, PLAY_DN, PLAY_UPDN, PLAY_AP_OCT, PLAY_UP_OCT, PLAY_DN_OCT, PLAY_UP_OCT2, PLAY_DN_OCT2, NUM_PLAYMODE } ArpPlayMode_t; // The current play mode
+typedef enum { PLAY_AP, PLAY_UP, PLAY_DN, PLAY_UPDN, 
+                PLAY_AP_OCT, PLAY_UP_OCT, PLAY_DN_OCT, 
+                PLAY_AP_OCT2, PLAY_UP_OCT2, PLAY_DN_OCT2, 
+                NUM_PLAYMODE 
+} ArpPlayMode_t; // The current play mode
 
 #define NOTE_BUFFER_SIZE 20
 
