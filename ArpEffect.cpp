@@ -1,4 +1,3 @@
-#include "midi_Defs.h"
 #include "MIDIUSB.h"
 #include "ArpEffect.h"
 #include "Utils.h"
@@ -9,11 +8,12 @@ ArpList::ArpList() {
   size = 0;
   noteIdx = 0;
   stepIdx = 0;
+
   prevNoteIdx = -1;
   prevStepIdx = -1;
   directionFlag = 1;
-  playMode = PLAY_AP;
-  octaves = 0;
+
+  playMode = playModes[0];
 
   // Set all steps on as default
   for (int i = 0; i < 16; i++) {
@@ -33,16 +33,21 @@ void ArpList::add(midi::DataByte note, midi::DataByte velocity,
 
   // When inserting a new note, default to note order ascending,
   // But if the current play mode is as-played, insert in order of play
-  switch (playMode) {
-    case PLAY_AP:
-      noteList[size] = n; // Insert at the next available space
+  switch (playMode.direction) {
+    case AP: // Insert at the next available space
+      noteList[size] = n;
       break;
-    default: 
+    case RAND: // Insert at the next available space
+      noteList[size] = n;
+      break;
+    default: // Insert in note order lowest -> highest
       uint8_t i;
       for (i = 0; i < size; i++) {
+
         // If the note is bigger, insert at that spot
         if (noteList[i].note > n.note) {
-          // If the current note is within the shifted notes, we need to shift
+
+          // If the current note falls within the shifted notes, we need to shift
           // The current indices up as well
           if (noteIdx >= i) {
             noteIdx++;
@@ -50,12 +55,15 @@ void ArpList::add(midi::DataByte note, midi::DataByte velocity,
             prevNoteIdx++;
           }
 
-          for (uint8_t j = size; j > i; j--) { // Shift all notes up 
+          // Shift all notes up 
+          for (uint8_t j = size; j > i; j--) {
             noteList[j] = noteList[j-1];
           }
           break;
         }
       }
+
+      // Insert the new note
       noteList[i] = n;
       break;
   }
@@ -65,8 +73,10 @@ void ArpList::add(midi::DataByte note, midi::DataByte velocity,
 void ArpList::del(midi::DataByte note) {
   // Search through list to find note 
   for (uint8_t i = 0; i < size; i++) {
+
     // If note found, shift all entries down
     if (noteList[i].note == note) {
+
       // Turn off the note first (handles octaves)
       sendMidiBoth(midi::MidiType::NoteOff, noteList[i].note + (noteList[i].lastOctave * 12), noteList[i].velocity,
                  noteList[i].channel);
@@ -74,12 +84,11 @@ void ArpList::del(midi::DataByte note) {
         noteList[j] = noteList[j + 1];
       }
       size--;
-      if (prevNoteIdx > i) {
-        prevNoteIdx--;
-      }
-      if (noteIdx > i) {
-        noteIdx--;
-      }
+
+      // If the current note is within the shifted notes,
+      // shift the indices too
+      if (prevNoteIdx > i) prevNoteIdx--;
+      if (noteIdx > i) noteIdx--;
 
       // Reset to defaults if no notes are being held
       if (size == 0) {
@@ -90,7 +99,7 @@ void ArpList::del(midi::DataByte note) {
 
         // Set the play mode to default for up/down mode
         // NOTE: Just up/down as others don't change direction
-        if (playMode == PLAY_UPDN) {
+        if (playMode.direction == UPDOWN) {
           directionFlag = 1;
         }
       }
@@ -101,7 +110,7 @@ void ArpList::del(midi::DataByte note) {
 
 uint8_t ArpList::getSize() { return size; }
 
-uint8_t ArpList::getOctaves() { return octaves; }
+uint8_t ArpList::getOctaves() { return playMode.octaveSpan; }
 
 int8_t ArpList::getDirFlag() { return directionFlag; }
 
@@ -115,46 +124,32 @@ ArpNote_t *ArpList::getPrevNote() {
 
 ArpNote_t *ArpList::getNote() {
 
-  if (size == 0) {
+  if (!stepList[stepIdx] || size == 0) {
+    stepIdx = (stepIdx + 1) % 16; // Don't forget to increment step index before return
     return nullptr;
   }
 
-  ArpNote_t *note;
-
-  // 1. If current step is enabled, get the current note
-  if (stepList[stepIdx]) {
-    note = &noteList[noteIdx];
-    prevNoteIdx = noteIdx;
-    prevStepIdx = stepIdx;
-  } else {
-    note = nullptr;
-  }
+  // 1. Get the current note
+  ArpNote_t *note = &noteList[noteIdx];
+  prevNoteIdx = noteIdx;
+  prevStepIdx = stepIdx;
 
   // 2. Choose the next note index based on the current play mode
-  // Up and as-played + octave variants
-  if (playMode == PLAY_AP || 
-      playMode == PLAY_AP_OCT || 
-      playMode == PLAY_AP_OCT2 ||
-      playMode == PLAY_UP || 
-      playMode == PLAY_UP_OCT ||
-      playMode == PLAY_UP_OCT2
-  ) {
-    noteIdx = (noteIdx + directionFlag) % size;
-  }
-
-  // Down + octave variants
-  else if (playMode == PLAY_DN || playMode == PLAY_DN_OCT || playMode == PLAY_DN_OCT2) {
+  switch (playMode.direction) {
+  case AP:
+    noteIdx = (noteIdx + 1) % size;
+    break;
+  case UP:
+    noteIdx = (noteIdx + 1) % size;
+    break;
+  case DOWN:
     if (noteIdx == 0) {
-      noteIdx = size - 1;
+    noteIdx = size - 1;
+    } else {
+      noteIdx = (noteIdx - 1);
     }
-
-    // Otherwise, get next note (directionFlag = -1)
-    else {
-      noteIdx = (noteIdx + directionFlag) % size;
-    }
-  }
-
-  else if (playMode == PLAY_UPDN /* || playMode == PLAY_UPDN_OCT*/) {
+    break;
+  case UPDOWN:
     // Wrap around if we aren't at the first octave
     if (noteIdx == 0) {
       directionFlag = 1;
@@ -164,11 +159,22 @@ ArpNote_t *ArpList::getNote() {
 
     // Proceed to the next step with the direction flag
     noteIdx = (noteIdx + directionFlag);
+    break;
+  case RAND:
+    noteIdx = random(0, size);
+    break;
   }
   
   // 3. Increment the step index
   stepIdx = (stepIdx + 1) % 16; // Go to next step
   return note;
+}
+
+ArpNote_t *ArpList::getNoteAt(uint8_t pos) {
+  if (!stepList[stepIdx]) {
+    return nullptr;
+  }
+  return &noteList[pos];
 }
 
 void ArpList::toggleStep(uint8_t index) { 
@@ -178,52 +184,35 @@ void ArpList::toggleStep(uint8_t index) {
 
 bool ArpList::getStep(uint8_t index) { return stepList[index]; }
 
-void ArpList::setPlayMode(ArpPlayMode_t _playMode) {
-  switch (_playMode) {
-    case PLAY_AP:
-      directionFlag = 1;
-      octaves = 1;
-      break;
-    case PLAY_UP:
-      directionFlag = 1;
-      octaves = 1;
-      break;
-    case PLAY_DN:
-      directionFlag = -1;
-      octaves = 1;
-      break;
-    case PLAY_UPDN:
-      directionFlag = 1;
-      octaves = 1;
-      break;
-    case PLAY_AP_OCT:
-      directionFlag = 1;
-      octaves = 2;
-      break;
-    case PLAY_UP_OCT:
-      directionFlag = 1;
-      octaves = 2;
-      break;
-    case PLAY_DN_OCT:
-      directionFlag = -1;
-      octaves = 2;
-      break;
-    case PLAY_AP_OCT2:
-      directionFlag = 1;
-      octaves = 3;
-    case PLAY_UP_OCT2:
-      directionFlag = 1;
-      octaves = 3;
-      break;
-    case PLAY_DN_OCT2:
-      directionFlag = -1;
-      octaves = 3;
-      break;
-    default:
-      break;
+void ArpList::setPlayMode(uint8_t pos) {
+  if (playMode.chordMode) {
+    for (uint8_t i = 0; i < size; i++) {
+      sendMidiBoth(midi::MidiType::NoteOff, noteList[i].note + (noteList[i].lastOctave * 12), noteList[i].velocity, noteList[i].channel);
+    }
   }
-  playMode = _playMode;
+
+  if (pos < NUM_PLAYMODE) {
+    playMode = playModes[pos];
+
+    if (playMode.direction == AP || 
+        playMode.direction == UP || 
+        playMode.direction == UPDOWN ||
+        playMode.direction == RAND
+    ) {
+      directionFlag = 1;
+    } else {
+      directionFlag = -1;
+    }
+  }
 }
+
+void ArpList::incrementStep() {
+  stepIdx = (stepIdx + 1) % 16;
+}
+
+bool ArpList::isChordMode() {
+  return playMode.chordMode;
+};
 
 void ArpList::clear() {
   for (uint8_t i = 0; i < size; i++) {
@@ -237,6 +226,7 @@ void ArpList::clear() {
   prevStepIdx = -1;
 }
 /* END ARPLIST CLASS */
+
 
 ArpEffect::ArpEffect() {
   inProgramMode = false;
@@ -253,24 +243,59 @@ ArpEffect::ArpEffect() {
 
 void ArpEffect::advanceArpStep() {
   if (isStompActive) {
-    // turn off previous note
-    ArpNote_t *last = arpList.getPrevNote();
-    if (last != nullptr) {
-      sendMidiBoth(midi::MidiType::NoteOff, last->note + (last->lastOctave * 12), last->velocity,
-                  last->channel);
-    }
+    if (arpList.isChordMode()) {
+      uint8_t i = 0;
+      while (i < arpList.getSize()) {
+        ArpNote_t *n = arpList.getNoteAt(i);
+        if (n == nullptr) {
+          break;
+        }
 
-    // turn on current note
-    ArpNote_t *curr = arpList.getNote();
-    if (curr != nullptr) {
-      sendMidiBoth(midi::MidiType::NoteOn, curr->note + (curr->currOctave * 12), curr->velocity,
-                  curr->channel);
-    }
-    curr->lastOctave = curr->currOctave;
+        // Safety for making sure the octave is within range
+        checkOctaveBounds(n);
 
-    if (arpList.getOctaves() > 0) {
-      curr->currOctave = (curr->currOctave + arpList.getDirFlag()) % arpList.getOctaves();
+        sendMidiBoth(midi::MidiType::NoteOff, n->note + (n->lastOctave * 12), n->velocity, n->channel);
+        sendMidiBoth(midi::MidiType::NoteOn, n->note + (n->currOctave * 12), n->velocity, n->channel);
+        n->lastOctave = n->currOctave;
+
+        if (arpList.getOctaves() > 0) {
+          n->currOctave = (n->currOctave + arpList.getDirFlag()) % arpList.getOctaves();
+        }
+        i++;
+      }
+      arpList.incrementStep();
+    } else {
+      // turn off previous note
+      ArpNote_t *last = arpList.getPrevNote();
+      if (last != nullptr) {
+        sendMidiBoth(midi::MidiType::NoteOff, last->note + (last->lastOctave * 12), last->velocity,
+                    last->channel);
+      }
+
+      // turn on current note
+      ArpNote_t *curr = arpList.getNote();
+      if (curr != nullptr) {
+        // Safety for making sure the octave is within range
+        checkOctaveBounds(curr);
+
+        sendMidiBoth(midi::MidiType::NoteOn, curr->note + (curr->currOctave * 12), curr->velocity,
+                    curr->channel);
+
+        curr->lastOctave = curr->currOctave;
+
+        if (arpList.getOctaves() > 0) {
+          curr->currOctave = (curr->currOctave + arpList.getDirFlag()) % arpList.getOctaves();
+        }
+      }
     }
+  }
+}
+
+void ArpEffect::checkOctaveBounds(ArpNote_t *ap) {
+  if ((int8_t)ap->note + (ap->currOctave * 12) > 127) {
+    ap->currOctave--;
+  } else if ((int8_t)ap->note + (ap->currOctave * 12) < 0) {
+    ap->currOctave++;
   }
 }
 
@@ -326,7 +351,7 @@ void ArpEffect::process(State_t *state) {
 
   if (!isInitialised) {
     isStompActive = state->isActive;
-    arpList.setPlayMode((state->rotaryPos < NUM_PLAYMODE ? (ArpPlayMode_t) state->rotaryPos : PLAY_AP));
+    arpList.setPlayMode(state->rotaryPos);
     isInitialised = true;
   }
 
@@ -334,17 +359,17 @@ void ArpEffect::process(State_t *state) {
   if (state->isActive) {
     if (inProgramMode) {
       if (arpList.getStep(state->rotaryPos)) setLed(0, 0, 255); // Blue
-      else setLed(0, 0, 0); // Off
+      else setLed(127, 127, 127); // White
     } else if (turnOffLed) {
       setLed(0, 0, 0); // Off
       turnOffLed = false;
       clockLedOn = false;
     } else if (turnOnLed) {
-      setLed(0, 255, 50); // Weird green
+      setLed(127, 127, 0); // Yellow
       turnOnLed = false;
       clockLedOn = true;
     } else if (!clockLedOn) {
-      setLed(0, 255, 0); // Green
+      setLed(0, 0, 255); // Blue
     }
   } else {
     setLed(0, 0, 0); // Off
@@ -356,7 +381,7 @@ void ArpEffect::process(State_t *state) {
     !inProgramMode && 
     state->rotaryPos < NUM_PLAYMODE
   ) {
-    arpList.setPlayMode((ArpPlayMode_t) state->rotaryPos);
+    arpList.setPlayMode(state->rotaryPos);
   }
 
   /* Save the tap time for ext footswitch click for internal clock source */
@@ -451,7 +476,5 @@ void ArpEffect::handleClock() {
   }
   lastClockMs = millis();
 }
-
-/* BEGIN ARP EFFECT CLASS */
 
 

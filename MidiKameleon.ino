@@ -29,6 +29,21 @@ void handleActiveSense() {
   usbMIDI.sendActiveSensing();
 }
 
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+} Rgb_t;
+
+static const Rgb_t effectColours[NUM_EFFECTS] = {
+  {255, 0, 0},
+  {255, 0, 85},
+  {255, 0, 170},
+  {255, 0, 255},
+  {0, 255, 255},
+  {255, 255, 0}
+};
+
 void handleClock() {
   if (currentEffect) currentEffect->handleClock();
 }
@@ -127,7 +142,7 @@ void setup() {
       rotarySwitch.refresh();
       uint8_t pos = rotarySwitch.getPosition();
       if (pos < NUM_EFFECTS) {
-        setLed(255, 15*pos, 0);
+        setLed(effectColours[pos].r, effectColours[pos].g, effectColours[pos].b);
         pedalState.effectIdx = pos;
         EEPROM.write(EEPROM_EFFECT, pos);
       } else {

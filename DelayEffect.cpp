@@ -6,7 +6,6 @@ DelayEffect::DelayEffect() {
   delayTimeMs = 0;
   lastClockMs = 0;
   clockIntervalMs = 0;
-  bpm = 0;
   delayNotesIdx = 0;
   delayDivision = 1;
   inDivisionMode = false;
@@ -32,6 +31,7 @@ void DelayEffect::resetDelayNote(uint8_t idx, uint8_t velocity, unsigned long no
   delayNotes[idx].lastPlayMs = now;
   delayNotes[idx].noteOffIntervalMs = 0;
   delayNotes[idx].noteOnMs = now;
+  delayNotes[idx].repeatsLeft = numRepeats;
 }
 
   void DelayEffect::addDelayNote(uint8_t note, uint8_t velocity, uint8_t channel,
@@ -48,22 +48,21 @@ void DelayEffect::resetDelayNote(uint8_t idx, uint8_t velocity, unsigned long no
 
     dn.noteOnMs = now;
     dn.noteOffIntervalMs = 0;
+    dn.repeatsLeft = numRepeats;
 
     delayNotes[delayNotesIdx] = dn;
     delayNotesIdx = (delayNotesIdx + 1) % MAX_DELAY_NOTES;
   }
 
 void DelayEffect::decayVelocity(DelayNote_t &note) {
-  uint8_t step;
-  if (numRepeats == 0) { // Avoids division by 0
-    step = note.velocity;
-  } else {
-    step = note.initVelocity / numRepeats;
-  }
-
   // Only reduce velocity if note has been released
   if (note.noteOffIntervalMs != 0) {
-    note.velocity = max(note.velocity - step, 0);
+    uint8_t step = (note.velocity + note.repeatsLeft - 1) / note.repeatsLeft;
+    note.velocity = (note.velocity > step) ? (note.velocity - step) : 0;
+
+    if (note.repeatsLeft != 0) {
+      note.repeatsLeft--;
+    }
   }
 }
 
@@ -116,16 +115,16 @@ void DelayEffect::handleMidiMessage(
     int8_t idx = findDelayNote(data1, channel);
 
     // Pedal active, note found, and note is active
-    if (
-      isActive &&
-      idx != -1 && 
-      delayNotes[idx].isActive
-    ) {
-      delayNotes[idx].noteOffIntervalMs = millis() - delayNotes[idx].noteOnMs;
-    }
-    // Turn off note and indicate the same in the note struct
-    if (!delayNotes[idx].isOn) {
-      delayNotes[idx].isOn = false;
+    if (isActive) {
+      if (idx != -1 && delayNotes[idx].isActive) {
+        delayNotes[idx].noteOffIntervalMs = millis() - delayNotes[idx].noteOnMs;
+      }
+
+      if (!delayNotes[idx].isOn) {
+        delayNotes[idx].isOn = false;
+        sendMidiBoth(type, data1, data2, channel);
+      }
+    } else {
       sendMidiBoth(type, data1, data2, channel);
     }
     break;
@@ -159,16 +158,16 @@ void DelayEffect::process(State_t *state) {
 
   if (state->isActive) {
     if (inDivisionMode) {
-      setLed(255, 100, 100);
+      setLed(127, 127, 127); // Light blue
     } else if (delayLedOn && (now - lastLedOnTime) > (delayTimeMs/(float)delayDivision)/2) {
       setLed(0, 0, 0);
       delayLedOn = false;
     } else if (!delayLedOn && (now - lastLedOnTime) > (delayTimeMs/(float)delayDivision)) {
-      setLed(0, 255, 50); // Weird green
+      setLed(127, 127, 0); // Yellow
       delayLedOn = true;
       lastLedOnTime = now;
     } else if (!delayLedOn) {
-      setLed(0, 255, 0);
+      setLed(0, 0, 255); // Blue
     }
   } else {
     setLed(0, 0, 0);
@@ -178,7 +177,7 @@ void DelayEffect::process(State_t *state) {
     if (inDivisionMode) {
       delayDivision = state->rotaryPos+1; // Add 1 so we don't get divide by 0 error
     } else {
-      numRepeats = state->rotaryPos;
+      numRepeats = state->rotaryPos+1;
     }
   }
 

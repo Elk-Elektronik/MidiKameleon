@@ -17,6 +17,7 @@ typedef struct {
   unsigned long noteOnMs;   // When the note was INITIALLY turned on
   unsigned long noteOffIntervalMs; // The interval between the initial note
                                    // record, and when it was released
+  uint8_t repeatsLeft; // The number of repeats left for this note
 } DelayNote_t;
 
 class DelayEffect : public BaseEffect {
@@ -29,7 +30,6 @@ private:
   /* Clock Input */
   volatile unsigned long lastClockMs; // The last clock pulse time
   volatile unsigned long clockIntervalMs; // The interval between clock pulses
-  volatile uint16_t bpm; // The current clock bpm
   bool clockFlag;
 
   /* External footswitch tempo input */
