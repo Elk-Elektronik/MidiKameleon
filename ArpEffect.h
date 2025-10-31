@@ -7,11 +7,42 @@
 
 typedef enum { ARPMODE_DEFAULT, ARPMODE_PROGRAM, NUM_ARPMODE } ArpMode_t; // The current mode the arp effect is in
 
-typedef enum { PLAY_AP, PLAY_UP, PLAY_DN, PLAY_UPDN, 
-                PLAY_AP_OCT, PLAY_UP_OCT, PLAY_DN_OCT, 
-                PLAY_AP_OCT2, PLAY_UP_OCT2, PLAY_DN_OCT2, 
-                NUM_PLAYMODE 
-} ArpPlayMode_t; // The current play mode
+typedef enum { AP, UP, DOWN, UPDOWN, RAND } ArpDirection_t; // The direction for the ArpPlayMode_t struct
+
+typedef struct {
+  uint8_t octaveSpan;
+  bool chordMode;
+  ArpDirection_t direction;
+} ArpPlayMode_t;
+
+#define NUM_PLAYMODE 16
+const ArpPlayMode_t playModes[NUM_PLAYMODE] = {
+  // 1 oct
+  {1, false, AP},
+  {1, false, UP},
+  {1, false, DOWN},
+  {1, false, UPDOWN},
+
+  // 2 oct
+  {2, false, AP},
+  {2, false, UP},
+  {2, false, DOWN},
+
+  // 3 oct
+  {3, false, AP},
+  {3, false, UP},
+  {3, false, DOWN},
+
+  // Chord modes
+  {1, true, AP},
+  {2, true, AP},
+  {3, true, AP},
+
+  // Random modes
+  {1, false, RAND},
+  {2, false, RAND},
+  {3, false, RAND},
+};
 
 #define NOTE_BUFFER_SIZE 20
 
@@ -20,8 +51,8 @@ typedef struct {
   uint8_t velocity;
   uint8_t channel;
   uint8_t octaves;
-  uint8_t lastOctave;
-  uint8_t currOctave;
+  int8_t lastOctave;
+  int8_t currOctave;
 } ArpNote_t;
 
 /* BEGIN ARPLIST CLASS */
@@ -30,7 +61,6 @@ private:
   ArpNote_t noteList[NOTE_BUFFER_SIZE] = {}; // The list of notes being held down
   bool stepList[16];  // The 16 steps available for muting
   uint8_t size;    // The size of the noteList
-  uint8_t octaves; // The number of octaves to span
 
   uint8_t noteIdx; // The index of the next note to play
   uint8_t stepIdx; // The index of the next step
@@ -54,8 +84,11 @@ public:
   ArpNote_t *getPrevNote(); // Retrieve the previous note played
 
   void toggleStep(uint8_t index);
+  bool isChordMode();
+  void incrementStep();
   bool getStep(uint8_t index);
-  void setPlayMode(ArpPlayMode_t mode);
+  ArpNote_t *getNoteAt(uint8_t pos); // Get a note at a specific position, or if no note, return null
+  void setPlayMode(uint8_t pos);
   void clear(); // Clear the list and send note off for all the remaining notes
 };
 /* END ARPLIST CLASS */
@@ -90,6 +123,7 @@ private:
   void advanceArpStep();
   void handleMidiMessage(bool isActive, midi::MidiType type, midi::DataByte data1,
                           midi::DataByte data2, midi::Channel channel);
+  void checkOctaveBounds(ArpNote_t *ap);
 
 public:
   ArpEffect();
