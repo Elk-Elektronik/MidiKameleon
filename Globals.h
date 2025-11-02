@@ -21,9 +21,9 @@
 #define ROT_D_BIT 0
 
 /* LEDS */
-#define LED_R_PIN 5
-#define LED_G_PIN 9
-#define LED_B_PIN 6
+#define LED_R_PIN 6
+#define LED_G_PIN 5
+#define LED_B_PIN 9
 
 /* TIMEOUTS */
 #define CLOCK_TIMEOUT 1000

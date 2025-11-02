@@ -33,12 +33,12 @@ const ArpPlayMode_t playModes[NUM_PLAYMODE] = {
   {3, false, UP},
   {3, false, DOWN},
 
-  // Chord modes
+  // Chord modes + octs
   {1, true, AP},
   {2, true, AP},
   {3, true, AP},
 
-  // Random modes
+  // Random modes + octs
   {1, false, RAND},
   {2, false, RAND},
   {3, false, RAND},
