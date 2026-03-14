@@ -267,13 +267,22 @@ void DelayEffect::process(State_t *state) {
   }
 
   if (usbMIDI.read()) {
-    handleMidiMessage(state->isActive, usbMIDI.getType(), usbMIDI.getData1(),
+    if (usbMIDI.getChannel() == state->midiChannel) {
+      handleMidiMessage(state->isActive, usbMIDI.getType(), usbMIDI.getData1(),
                       usbMIDI.getData2(), usbMIDI.getChannel());
+    } else {
+      sendMidiBoth(usbMIDI.getType(), usbMIDI.getData1(), usbMIDI.getData2(), usbMIDI.getChannel());
+    }
+    
   }
 
   if (hardwareMIDI.read()) {
-    handleMidiMessage(state->isActive, hardwareMIDI.getType(), hardwareMIDI.getData1(),
+    if (hardwareMIDI.getChannel() == state->midiChannel) {
+      handleMidiMessage(state->isActive, hardwareMIDI.getType(), hardwareMIDI.getData1(),
                       hardwareMIDI.getData2(), hardwareMIDI.getChannel());
+    } else {
+      sendMidiBoth(hardwareMIDI.getType(), hardwareMIDI.getData1(), hardwareMIDI.getData2(), hardwareMIDI.getChannel());
+    }
   }
 }
 

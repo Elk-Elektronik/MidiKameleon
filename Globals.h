@@ -56,6 +56,7 @@ typedef struct {
   SwEvent_t extEvent; // The current event emitted by the external switch
   bool rotaryMoved; // Is the rotary position different from last time?
   uint8_t rotaryPos; // The current position of the rotary switch
+  uint8_t midiChannel; // The midi channel to process
 
 } State_t;
 
@@ -64,6 +65,7 @@ typedef struct {
 #define EEPROM_EFFECT 0x00 // The currently active effect
 #define EEPROM_MUTE_BASE 0x10 // Midi mute location (takes 16 * 8bits space)
 #define EEPROM_ARP_BASE 0x50 // Step save location
+#define EEPROM_MIDI_CHANNEL 0x80 // MIDI channel in/out location
 
 /* TIMERS */
 #define LONG_PRESS 1000

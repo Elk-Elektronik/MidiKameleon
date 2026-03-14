@@ -44,6 +44,31 @@ static const Rgb_t effectColours[NUM_EFFECTS] = {
   {255, 255, 0}
 };
 
+static const Rgb_t midiColours[16] = {
+  {255,0,0},   {255,128,0}, {255,255,0}, {128,255,0},
+  {0,255,0},   {0,255,128}, {0,255,255}, {0,128,255},
+  {0,0,255},   {128,0,255}, {255,0,255}, {255,0,128},
+  {255,255,255},{128,128,128},{64,64,64},{255,64,64}
+};
+
+void pulseMidiColour(uint8_t index) {
+  static uint8_t pulse = 0;
+  static int8_t dir = 1;
+
+  Rgb_t c = midiColours[index % 16];
+
+  uint8_t r = (c.r * pulse) >> 8;
+  uint8_t g = (c.g * pulse) >> 8;
+  uint8_t b = (c.b * pulse) >> 8;
+
+  setLed(r, g, b);
+
+  pulse += dir * 1;
+
+  if (pulse == 0 || pulse == 255)
+      dir = -dir;
+}
+
 void handleClock() {
   if (currentEffect) currentEffect->handleClock();
 }
@@ -106,53 +131,76 @@ void setup() {
   pinMode(LED_G_PIN, OUTPUT);
   pinMode(LED_B_PIN, OUTPUT);
 
-  /* MIDI */
+    /* MIDI */
   // Begin DIN and USB midi 
   hardwareMIDI.begin(MIDI_CHANNEL_OMNI);
   usbMIDI.begin(MIDI_CHANNEL_OMNI);
 
-  // Turn thru off to control midi flow
-  hardwareMIDI.turnThruOff();
-
   // Set event handler
   hardwareMIDI.setHandleActiveSensing(handleActiveSense);
+
+  // Turn thru off to control midi flow
+  hardwareMIDI.turnThruOff();
+  
+  bool hasBeenInMidiSetup = false;
+  // Fetch midi channel
+  pedalState.midiChannel = EEPROM.read(EEPROM_MIDI_CHANNEL); // default to channel in eeprom
+  if (pedalState.midiChannel > 16) {
+    pedalState.midiChannel = 1;
+  }
 
   /* SETUP MODE */
   // Enter if stomp held, otherwise fetch effect from EEPROM
   if (!stompSwitch.getValue()) {
-    
+
     // Setup mode led indicator
     indicateModeChange(500);
 
     // Setup mode loop
     bool inSetup = true;
+    bool inMidiSetup = false;
+
     while (inSetup) {
 
       // Check if we need to exit setup mode
       pedalState.stompEvent = stompSwitch.getEvent();
       switch(pedalState.stompEvent) {
-        case Click:
+        case Click: // Exit setup mode
           inSetup = false;
+          inMidiSetup = false;
+          break;
+        case LongPress: // Enter MIDI channel setup
+          inMidiSetup = !inMidiSetup;
+          hasBeenInMidiSetup = true;
           break;
         default:
           break;
       }
 
-      // Update the current effect
+      // Update and get position
       rotarySwitch.refresh();
       uint8_t pos = rotarySwitch.getPosition();
-      if (pos < NUM_EFFECTS) {
-        setLed(effectColours[pos].r, effectColours[pos].g, effectColours[pos].b);
-        pedalState.effectIdx = pos;
-        EEPROM.write(EEPROM_EFFECT, pos);
+
+      if (inMidiSetup) {
+        pedalState.midiChannel = pos + 1;
+        pulseMidiColour(pos);
       } else {
-        setLed(0, 0, 0);
+        if (pos < NUM_EFFECTS) {
+          setLed(effectColours[pos].r, effectColours[pos].g, effectColours[pos].b);
+          pedalState.effectIdx = pos;
+          EEPROM.write(EEPROM_EFFECT, pos);
+        } else {
+          setLed(0, 0, 0);
+        }
       }
+      
     }
   } else {
     uint8_t effect = EEPROM.read(EEPROM_EFFECT);
     if (effect < NUM_EFFECTS) pedalState.effectIdx = effect;
     else pedalState.effectIdx = E_MIDIMUTE;
+    
+    if (hasBeenInMidiSetup) EEPROM.write(EEPROM_MIDI_CHANNEL, pedalState.midiChannel);
   }
 
   // On boot, the pedal isn't active
