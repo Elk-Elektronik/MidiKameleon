@@ -65,6 +65,7 @@ typedef struct {
 #define EEPROM_EFFECT 0x00 // The currently active effect
 #define EEPROM_MUTE_BASE 0x10 // Midi mute location (takes 16 * 8bits space)
 #define EEPROM_ARP_BASE 0x50 // Step save location
+#define EEPROM_ARP_HOLD_OFFSET 0x10 // Used with arp base to get the current hold state
 #define EEPROM_MIDI_CHANNEL 0x80 // MIDI channel in/out location
 
 /* TIMERS */

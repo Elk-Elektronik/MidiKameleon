@@ -53,6 +53,7 @@ typedef struct {
   uint8_t octaves;
   int8_t lastOctave;
   int8_t currOctave;
+  bool isReleased;
 } ArpNote_t;
 
 /* BEGIN ARPLIST CLASS */
@@ -71,6 +72,8 @@ private:
 
   ArpPlayMode_t playMode; // The current play mode for arpeggiator
 
+  bool isHoldMode; // Is the arp in hold mode
+
 public:
   ArpList();
   void add(midi::DataByte note, midi::DataByte velocity,
@@ -82,12 +85,15 @@ public:
   int8_t getDirFlag(); // Get the current direction flag
   ArpNote_t *getNote(); // Retrieve the note to play
   ArpNote_t *getPrevNote(); // Retrieve the previous note played
+  bool inHoldMode(); // Is the arp in hold mode
 
   void toggleStep(uint8_t index);
   bool isChordMode();
   void incrementStep();
   bool getStep(uint8_t index);
   ArpNote_t *getNoteAt(uint8_t pos); // Get a note at a specific position, or if no note, return null
+  ArpNote_t *getNoteFromPitch(midi::DataByte note); // Get the note from specific pitch, or if no note, return null
+  bool allNotesReleased(); // have all the notes been released
   void setPlayMode(uint8_t pos);
   void clear(); // Clear the list and send note off for all the remaining notes
 };

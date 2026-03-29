@@ -177,6 +177,28 @@ ArpNote_t *ArpList::getNoteAt(uint8_t pos) {
   return &noteList[pos];
 }
 
+ArpNote_t *ArpList::getNoteFromPitch(midi::DataByte note) {
+  for (uint8_t i = 0; i < size; i++) {
+    if (noteList[i].note == note) {
+      return &noteList[i];
+    }
+  }
+  return nullptr;
+}
+
+bool ArpList::inHoldMode() {
+  return isHoldMode;
+}
+
+bool ArpList::allNotesReleased() {
+  for (uint8_t i = 0; i < size; i++) {
+    if (!noteList[i].isReleased) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void ArpList::toggleStep(uint8_t index) { 
   stepList[index] = !stepList[index];
   EEPROM.write(EEPROM_ARP_BASE + index, stepList[index]);
@@ -219,6 +241,11 @@ void ArpList::clear() {
     ArpNote_t n = noteList[noteIdx];
     sendMidiBoth(midi::MidiType::NoteOff, n.note + (n.lastOctave * 12), n.velocity, n.channel);
   }
+
+  // HACK: This fixes hanging note on hold mode for some reason
+  ArpNote_t n = noteList[prevNoteIdx];
+  sendMidiBoth(midi::MidiType::NoteOff, n.note + (n.lastOctave * 12), n.velocity, n.channel);
+
   size = 0;
   noteIdx = 0;
   stepIdx = 0;
@@ -325,6 +352,9 @@ void ArpEffect::handleMidiMessage(
     break;
   case midi::MidiType::NoteOn: {
     if (isActive) {
+      if (arpList.inHoldMode() && arpList.allNotesReleased()) {
+        arpList.clear();
+      }
       arpList.add(data1, data2, channel); // Add note to list
     } else {
       arpList.add(data1, data2, channel); // Add anyway
@@ -334,7 +364,13 @@ void ArpEffect::handleMidiMessage(
   }
   case midi::MidiType::NoteOff: {
     if (isActive) {
-      arpList.del(data1); // Delete note from list
+      ArpNote_t *note = arpList.getNoteFromPitch(data1);
+      if (note != nullptr) {
+        note->isReleased = true;
+      }
+      if (!arpList.inHoldMode()) {
+        arpList.del(data1); // Delete note from list
+      }
     } else {
       arpList.del(data1); // Delete anyway
       sendMidiBoth(type, data1, data2, channel);
